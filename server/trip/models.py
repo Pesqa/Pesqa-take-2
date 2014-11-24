@@ -5,9 +5,12 @@ from django.core.urlresolvers import reverse
 from django.utils.functional import cached_property
 from django.core.validators import MaxValueValidator
 from django.template import Context
+from django.contrib.auth import get_user_model
 
 from utils.models import TimeStampedModel
 from utils.helpers import file_url
+
+User = get_user_model()
 
 class FishType(TimeStampedModel):
     name = models.CharField(max_length=50)
@@ -19,6 +22,7 @@ class TripImage(TimeStampedModel):
     image = models.ImageField(upload_to=file_url(u'trip_images'))
 
 class MasterTrip(TimeStampedModel):
+    provider = models.ForeignKey(User)
     name = models.CharField(max_length=150)
     fish_types = models.ManyToMany(FishType)
     fishing_type = models.CharField(max_length=50, choices=FISHING_TYPES)
@@ -27,7 +31,6 @@ class MasterTrip(TimeStampedModel):
     video_link = models.URLField(null=True, blank=True)
     thumbnail = models.ImageField(upload_to=file_url(u'trip_images'))
     images = models.OneToMany(TripImage, blank=True, null=True)
-    #provider = 
     featured = models.BooleanField(default=False)
     has_remaining = models.BooleanField(default=True)
     
@@ -115,7 +118,7 @@ class TripInstance(TimeStampedModel):
     
 class TripBooking(TimeStampedModel):
     trip = models.ForeignKey(TripInstance, related_name='bookings', null=True, on_delete=models.SET_NULL)
-    #customer = models.ForeignKey(Customer)
+    customer = models.ForeignKey(User)
     num_booked = models.PositiveIntegerField()
     amount_charged = models.DecimalField(max_digits=10, decimal_places=2)
     charged_id = models.CharField(max_length=60)
