@@ -39,6 +39,7 @@ INSTALLED_APPS = (
     'rest_framework.authtoken',
     
     # Internal apps
+    'trip',
 )
 
 MIDDLEWARE_CLASSES = (

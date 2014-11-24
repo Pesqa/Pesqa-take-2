@@ -1,5 +1,6 @@
 import pytz
 
+from django.conf import settings
 from django.db import models
 from django.core.urlresolvers import reverse
 from django.utils.functional import cached_property
@@ -10,27 +11,41 @@ from django.contrib.auth import get_user_model
 from utils.models import TimeStampedModel
 from utils.helpers import file_url
 
-User = get_user_model()
+SERVICE_TYPES = [('guide', 'Guide'), ('lodge', 'Lodge'), ('charter', 'Charter')]
+FISHING_TYPES = [('freshwater', 'Freshwater'), ('saltwater', 'Saltwater'),
+                 ('freshwater fly', 'Freshwater Fly'), ('saltwater fly', 'Saltwater Fly')]
+WATER_TYPES = [('river', 'River'), ('lake', 'Lake'), ('ocean', 'Ocean')]
+PRICING_TYPES = [('person', 'Per Person'), ('boat', 'Per Boat')]
+ANGLER_NUMS = [('1', 'One angler'), ('2', 'Two anglers'),
+                 ('3', 'Three anglers'), ('4', 'Four anglers'), ('5', 'Five anglers'), ('6', 'Six anglers'),
+                 ('7', 'Seven anglers'), ('8', 'Eight anglers'), ('9', 'Nine anglers'), ('10', 'Ten anglers'),]
+#TODO: Remember that ANGLER_NUMS values need to be converted to numbers before  we can do any math
 
 class FishType(TimeStampedModel):
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50, unique=True)
+    
+    class Meta:
+        ordering = ['name']
     
     def __str__(self):
         return self.name
 
 class TripImage(TimeStampedModel):
+    trip = models.ForeignKey('MasterTrip', related_name='images', null=True)
     image = models.ImageField(upload_to=file_url(u'trip_images'))
+    
+    def __str__(self):
+        return self.image.name
 
 class MasterTrip(TimeStampedModel):
-    provider = models.ForeignKey(User)
+    provider = models.ForeignKey(settings.AUTH_USER_MODEL)
     name = models.CharField(max_length=150)
-    fish_types = models.ManyToMany(FishType)
+    fish_types = models.ManyToManyField(FishType)
     fishing_type = models.CharField(max_length=50, choices=FISHING_TYPES)
     water_type = models.CharField(max_length=25, choices=WATER_TYPES)
     service_type = models.CharField(max_length=25, choices=SERVICE_TYPES)
     video_link = models.URLField(null=True, blank=True)
     thumbnail = models.ImageField(upload_to=file_url(u'trip_images'))
-    images = models.OneToMany(TripImage, blank=True, null=True)
     featured = models.BooleanField(default=False)
     has_remaining = models.BooleanField(default=True)
     
@@ -84,7 +99,7 @@ class MasterTrip(TimeStampedModel):
             'location': ', '.join([self.city, self.state]),
             'species': ', '.join(map(unicode, self.fish_types.all())),
             'price': str(floatformat(self.search_price, -2)),
-            'name': self.name
+            'name': self.name,
             'description': self.description[:72] + '... '
         }
     
@@ -102,7 +117,7 @@ class TripInstance(TimeStampedModel):
     
     def __str__(self):
         # XXX -- DO NOT CHANGE WITHOUT CARE -- used in several places: e.g. provider_bookings
-        return self.master_trip.name + ': {0.month}/{0.year} - {1.month}/{1.day}/{1.year}'.format(self.begin self.end)
+        return self.master_trip.name + ': {0.month}/{0.year} - {1.month}/{1.day}/{1.year}'.format(self.begin, self.end)
     
     @property
     def spots(self):
@@ -118,7 +133,7 @@ class TripInstance(TimeStampedModel):
     
 class TripBooking(TimeStampedModel):
     trip = models.ForeignKey(TripInstance, related_name='bookings', null=True, on_delete=models.SET_NULL)
-    customer = models.ForeignKey(User)
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL)
     num_booked = models.PositiveIntegerField()
     amount_charged = models.DecimalField(max_digits=10, decimal_places=2)
     charged_id = models.CharField(max_length=60)
